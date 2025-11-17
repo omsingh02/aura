@@ -1,66 +1,74 @@
 ﻿import asyncio
 import sys
 import threading
-from .core.audio import record_audio
-from .core.recognizer import recognize_song
-from .core.history import SongHistory
-from .services.downloader import MusicDownloader
-from .config import RECORD_SECONDS
+from rich.live import Live
+from .ui.tui import AuraTUI
+from .services.manager import ServiceManager
+from .utils.async_loops import audio_recognition_loop, command_processor_loop
 
 if sys.platform == 'win32':
     import msvcrt
+else:
+    import select, tty, termios
 
-command_queue = asyncio.Queue()
-
-def input_reader_windows():
-    while True:
-        if msvcrt.kbhit():
-            char = msvcrt.getch()
+async def input_reader(command_queue, loop):
+    def blocking_input_loop_windows():
+        while True:
             try:
-                key = char.decode('utf-8').lower()
-                asyncio.run_coroutine_threadsafe(
-                    command_queue.put(key),
-                    asyncio.get_event_loop()
-                )
+                if msvcrt.kbhit():
+                    char = msvcrt.getch()
+                    if char == b'\\x1b':
+                        key = 'q'
+                    elif char in [b'\\x00', b'\\xe0']:
+                        if msvcrt.kbhit():
+                            next_char = msvcrt.getch()
+                            if next_char == b'H':
+                                key = 'up'
+                            elif next_char == b'P':
+                                key = 'down'
+                            else:
+                                continue
+                        else:
+                            continue
+                    else:
+                        key = char.decode('utf-8').lower()
+                    asyncio.run_coroutine_threadsafe(command_queue.put(key), loop)
             except:
                 pass
-
-async def main():
-    history = SongHistory()
-    downloader = MusicDownloader()
     
-    if sys.platform == 'win32':
-        input_thread = threading.Thread(target=input_reader_windows, daemon=True)
-        input_thread.start()
-    
-    print('Music recognition started. Press d to download last song, q to quit.')
-    last_song = None
+    input_thread = threading.Thread(target=blocking_input_loop_windows, daemon=True)
+    input_thread.start()
     
     while True:
-        try:
-            # Check for commands
-            if not command_queue.empty():
-                cmd = await command_queue.get()
-                if cmd == 'q':
-                    break
-                elif cmd == 'd' and last_song:
-                    await downloader.download_from_jiosaavn(
-                        last_song['title'],
-                        last_song['artist']
-                    )
-            
-            print('\\nListening...')
-            audio_file = record_audio(RECORD_SECONDS)
-            
-            song = await recognize_song(audio_file)
-            if song:
-                is_new, song_id = history.add(song)
-                if is_new:
-                    print(f\"âœ“ #{song_id}: {song['title']} by {song['artist']}\")
-                    last_song = song
-                    
-        except KeyboardInterrupt:
-            break
+        await asyncio.sleep(1)
+
+async def main_async():
+    services = ServiceManager()
+    tui = AuraTUI()
+    command_queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    
+    with Live(tui.render(), refresh_per_second=4, screen=True) as live:
+        input_task = asyncio.create_task(input_reader(command_queue, loop))
+        recognition_task = asyncio.create_task(audio_recognition_loop(services, tui))
+        command_task = asyncio.create_task(
+            command_processor_loop(services, command_queue, recognition_task, tui)
+        )
+        
+        # Display update loop
+        while not command_task.done():
+            if tui.needs_render():
+                live.update(tui.render())
+                tui.mark_rendered()
+            await asyncio.sleep(0.05)
+        
+        recognition_task.cancel()
+        input_task.cancel()
+
+def main():
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(main_async())
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
