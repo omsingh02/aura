@@ -24,6 +24,7 @@ class ShazamTUI:
         self.status = "Listening..."
         self.show_help = True
         self._dirty = False
+        self._force_render = False  # For immediate high-priority updates
         self.selected_index = 0
         self.scroll_offset = 0
         self.visible_rows = 15  # Initial value, recalculated on render
@@ -118,6 +119,7 @@ class ShazamTUI:
         return text[:max(0, width-3)] + "..."
     
     def _make_songs_panel(self) -> Panel:
+        """Ultra-fast songs panel with optimized selection rendering"""
         self.visible_rows = self._calculate_visible_rows()
         
         if not self.songs:
@@ -126,10 +128,11 @@ class ShazamTUI:
                 vertical="middle"
             )
         else:
-            table = Table(show_header=True, header_style="bold cyan", box=None, padding=(0, 1))
-            table.add_column("", width=2)
-            table.add_column("ID", style="bold green", width=5)
-            table.add_column("Time", style="dim", width=10)
+            # Minimal table settings for maximum performance
+            table = Table(show_header=True, header_style="bold cyan", box=None, padding=(0, 1), pad_edge=False)
+            table.add_column("", width=2, no_wrap=True)
+            table.add_column("ID", style="bold green", width=5, no_wrap=True)
+            table.add_column("Time", style="dim", width=10, no_wrap=True)
             table.add_column("Song", style="bold white", no_wrap=True)
             table.add_column("Artist", style="magenta", no_wrap=True)
             table.add_column("Info", style="dim", no_wrap=True)
@@ -138,12 +141,18 @@ class ShazamTUI:
             end_idx = min(self.scroll_offset + self.visible_rows, total_songs)
             visible_songs = self.songs[self.scroll_offset:end_idx]
             
+            # Pre-calculate selection index for faster comparison
+            selected_offset = self.selected_index - self.scroll_offset
+            
+            # Batch process all rows for faster rendering
             for idx, song in enumerate(visible_songs):
-                actual_idx = self.scroll_offset + idx
+                is_selected = (idx == selected_offset)
                 
-                indicator = "►" if actual_idx == self.selected_index else " "
-                style_suffix = " on blue" if actual_idx == self.selected_index else ""
+                # Use simpler indicator and style
+                indicator = "►" if is_selected else " "
+                row_style = "on blue" if is_selected else ""
                 
+                # Pre-formatted values
                 song_id = f"#{song.get('id', 0):03d}"
                 time = song.get('time', '--:--:--')
                 title = self._safe_truncate(song.get('title', 'Unknown'), 30)
@@ -159,13 +168,8 @@ class ShazamTUI:
                     title,
                     artist,
                     info,
-                    style=style_suffix.strip()
+                    style=row_style
                 )
-            
-            if total_songs > self.visible_rows:
-                scroll_info = f"Showing {self.scroll_offset + 1}-{end_idx} of {total_songs} songs"
-            else:
-                scroll_info = f"{total_songs} song(s)"
             
             content = table
         
@@ -222,7 +226,7 @@ class ShazamTUI:
             )
     
     def render(self) -> Layout:
-        """Render the TUI with partial updates to minimize flicker"""
+        """Ultra-fast render with optimized update path for navigation"""
         try:
             if self._cached_header is None:
                 self.layout["header"].update(self._make_header())
@@ -230,15 +234,20 @@ class ShazamTUI:
             if self.status != self._last_status:
                 self.layout["footer"].update(self._make_footer())
             
+            # Always update songs panel for navigation changes - no caching
+            # This ensures instant selection highlight updates
             if (len(self.songs) != self._last_song_count or 
                 self.selected_index != self._last_selected or 
-                self.scroll_offset != self._last_scroll):
+                self.scroll_offset != self._last_scroll or
+                self._force_render):
                 self.layout["songs"].update(self._make_songs_panel())
                 self._last_song_count = len(self.songs)
                 self._last_selected = self.selected_index
                 self._last_scroll = self.scroll_offset
             
-            self.layout["sidebar"].update(self._make_sidebar())
+            # Only update sidebar when needed (help toggle)
+            if self.show_help and self._cached_help is None:
+                self.layout["sidebar"].update(self._make_sidebar())
             
         except Exception as e:
             error_panel = Panel(
@@ -276,12 +285,16 @@ class ShazamTUI:
             self.selected_index -= 1
             self._update_scroll()
             self._dirty = True
+            # Force immediate render flag for responsive navigation
+            self._force_render = True
     
     def scroll_down(self):
         if self.songs and self.selected_index < len(self.songs) - 1:
             self.selected_index += 1
             self._update_scroll()
             self._dirty = True
+            # Force immediate render flag for responsive navigation
+            self._force_render = True
     
     def _update_scroll(self):
         if not self.songs:
@@ -311,10 +324,11 @@ class ShazamTUI:
         self._dirty = True
     
     def needs_render(self) -> bool:
-        return self._dirty
+        return self._dirty or self._force_render
     
     def mark_rendered(self):
         self._dirty = False
+        self._force_render = False
     
     def add_task(self, task: asyncio.Task):
         """Track background tasks for proper cleanup"""

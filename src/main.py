@@ -53,7 +53,8 @@ async def input_reader(command_queue: asyncio.Queue, loop) -> None:
                     
                     asyncio.run_coroutine_threadsafe(command_queue.put(key), loop)
                 else:
-                    time.sleep(0.001)
+                    # Ultra-short sleep for instant key detection
+                    time.sleep(0.0001)  # 0.1ms = 10000Hz polling
             except KeyboardInterrupt:
                 break
             except Exception:
@@ -68,14 +69,15 @@ async def input_reader(command_queue: asyncio.Queue, loop) -> None:
             tty.setcbreak(sys.stdin.fileno())
             while True:
                 try:
-                    if select.select([sys.stdin], [], [], 0.001)[0]:
+                    # Ultra-fast polling for instant key detection
+                    if select.select([sys.stdin], [], [], 0.0001)[0]:
                         char = sys.stdin.read(1)
                         
                         if char == '\x1b':
-                            if select.select([sys.stdin], [], [], 0.001)[0]:
+                            if select.select([sys.stdin], [], [], 0.0001)[0]:
                                 next_char = sys.stdin.read(1)
                                 if next_char == '[':
-                                    if select.select([sys.stdin], [], [], 0.001)[0]:
+                                    if select.select([sys.stdin], [], [], 0.0001)[0]:
                                         arrow = sys.stdin.read(1)
                                         if arrow == 'A':
                                             key = 'up'
@@ -114,13 +116,28 @@ async def input_reader(command_queue: asyncio.Queue, loop) -> None:
 
 
 async def update_display(live: Live, tui: ShazamTUI):
+    """Ultra-smooth display update with adaptive rendering"""
+    last_render_time = 0
+    min_render_interval = 0.033  # 30Hz for smooth motion
+    
     while True:
         try:
-            if tui.needs_render():
-                live.update(tui.render())
-                tui.mark_rendered()
+            import time
+            current_time = time.time()
             
-            await asyncio.sleep(0.05)
+            if tui.needs_render():
+                # Immediate render for navigation, throttled for other updates
+                if tui._force_render:
+                    live.update(tui.render())
+                    tui.mark_rendered()
+                    last_render_time = current_time
+                elif (current_time - last_render_time) >= min_render_interval:
+                    live.update(tui.render())
+                    tui.mark_rendered()
+                    last_render_time = current_time
+            
+            # Ultra-tight loop for instant response
+            await asyncio.sleep(0.005)  # 200Hz check rate for silky smooth updates
             
         except asyncio.CancelledError:
             break
@@ -169,7 +186,9 @@ async def main_async() -> None:
     
     loop = asyncio.get_event_loop()
     
-    with Live(tui.render(), refresh_per_second=4, screen=True) as live:
+    # 30Hz for ultra-smooth navigation (33ms refresh)
+    # High enough for smooth motion, low enough to prevent flicker
+    with Live(tui.render(), refresh_per_second=30, screen=True) as live:
         tui.live = live
         
         input_task = asyncio.create_task(input_reader(command_queue, loop))

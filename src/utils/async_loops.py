@@ -94,11 +94,14 @@ async def command_processor_loop(
             command = await command_queue.get()
             iteration += 1
             
+            # Handle navigation commands immediately with no delay
             if command == 'up':
                 tui.scroll_up()
+                # Process next command immediately if available
                 continue
             elif command == 'down':
                 tui.scroll_down()
+                # Process next command immediately if available
                 continue
             
             result = await process_command(
