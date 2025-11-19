@@ -1,31 +1,31 @@
-﻿# ðŸŽµ Aura
+﻿# Aura
 
 Real-time music recognition with voice control and rich terminal interface.
 
 ## Features
 
-- ðŸŽ§ Continuous audio recognition with Shazam
-- ðŸŽ¤ Voice commands for search and control
-- ðŸ“¥ High-quality downloads from JioSaavn
-- â–¶ï¸ YouTube integration
-- ðŸŽ¨ Rich terminal UI with navigation
-- ðŸ“ Persistent history tracking
+- Continuous audio recognition with Shazam
+- Voice commands for search and control
+- High-quality downloads from JioSaavn
+- YouTube integration
+- Rich terminal UI with navigation
+- Persistent history tracking
 
 ## Installation
 
-\\\ash
+\\\bash
 pip install -r requirements.txt
 \\\
 
 ## Usage
 
-\\\ash
+\\\bash
 python -m src.main
 \\\
 
 ## Controls
 
-- â†‘/â†“ - Navigate songs
+- up/down - Navigate songs
 - d - Download selected
 - y - Play on YouTube
 - v - Voice search
