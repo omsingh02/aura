@@ -1,13 +1,16 @@
-﻿from ..core.history import SongHistory
+from ..core.history import SongHistory
 from .downloader import MusicDownloader
 from .youtube import YouTubePlayer
+from .voice import VoiceController
+
 
 class ServiceManager:
+    
     def __init__(self):
         self.history = SongHistory()
         self.downloader = MusicDownloader()
         self.player = YouTubePlayer()
-        self.voice_controller = None
+        self.voice_controller = VoiceController()
     
     async def cleanup(self):
         await self.history.cleanup()
