@@ -70,9 +70,7 @@ class ShazamTUI:
         header_text.append("♪ SHAZAM LIVE", style="bold cyan")
         header_text.append(" | ", style="dim")
         header_text.append("q", style="bold red")
-        header_text.append(" to quit | ", style="dim")
-        header_text.append("?", style="bold yellow")
-        header_text.append(" to toggle help", style="dim")
+        header_text.append(" to quit", style="dim")
         
         self._cached_header = Panel(
             Align.center(header_text),

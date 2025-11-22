@@ -13,15 +13,15 @@ Real-time music recognition with voice control and rich terminal interface.
 
 ## Installation
 
-\\\bash
+```bash
 pip install -r requirements.txt
-\\\
+```
 
 ## Usage
 
-\\\bash
+```bash
 python -m src.main
-\\\
+```
 
 ## Controls
 
