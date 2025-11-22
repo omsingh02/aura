@@ -2,6 +2,8 @@
 
 Real-time music recognition with voice control and rich terminal interface.
 
+![Aura in action - 50+ songs detected](screenshots/aura-screenshot.png)
+
 ## Features
 
 - Continuous audio recognition with Shazam
