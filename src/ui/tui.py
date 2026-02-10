@@ -56,10 +56,7 @@ class ShazamTUI:
             Layout(name="main", ratio=1),
             Layout(name="footer", size=3)
         )
-        self.layout["main"].split_row(
-            Layout(name="songs", ratio=2),
-            Layout(name="sidebar", ratio=1)
-        )
+        self.layout["main"].update(self._make_songs_panel())
     
     def _make_header(self) -> Panel:
         """Create header panel with caching"""
@@ -238,14 +235,11 @@ class ShazamTUI:
                 self.selected_index != self._last_selected or 
                 self.scroll_offset != self._last_scroll or
                 self._force_render):
-                self.layout["songs"].update(self._make_songs_panel())
+                self.layout["main"].update(self._make_songs_panel())
                 self._last_song_count = len(self.songs)
                 self._last_selected = self.selected_index
                 self._last_scroll = self.scroll_offset
             
-            # Only update sidebar when needed (help toggle)
-            if self.show_help and self._cached_help is None:
-                self.layout["sidebar"].update(self._make_sidebar())
             
         except Exception as e:
             error_panel = Panel(
