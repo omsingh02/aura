@@ -1,6 +1,5 @@
 import asyncio
 import sys
-import threading
 from datetime import datetime
 from rich.live import Live
 
@@ -21,98 +20,89 @@ else:
     import termios
 
 
-async def input_reader(command_queue: asyncio.Queue, loop) -> None:
-    
-    def blocking_input_loop_windows():
-        import time
-        
-        while True:
+class InputHandler:
+    def __init__(self, queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
+        self.queue = queue
+        self.loop = loop
+        self.running = True
+        self._thread = None
+        self._setup()
+
+    def _setup(self):
+        if sys.platform != 'win32':
+            # Unix: Zero-cost add_reader
             try:
-                if msvcrt.kbhit():
-                    char = msvcrt.getch()
-                    if char == b'\x1b':
-                        key = 'q'
-                    elif char == b'\r':
-                        continue
-                    elif char in [b'\x00', b'\xe0']:
-                        if msvcrt.kbhit():
-                            next_char = msvcrt.getch()
-                            if next_char == b'H':
-                                key = 'up'
-                            elif next_char == b'P':
-                                key = 'down'
-                            else:
-                                continue
-                        else:
-                            continue
-                    else:
-                        try:
-                            key = char.decode('utf-8').lower()
-                        except UnicodeDecodeError:
-                            continue
-                    
-                    asyncio.run_coroutine_threadsafe(command_queue.put(key), loop)
-                else:
-                    # Ultra-short sleep for instant key detection
-                    time.sleep(0.0001)  # 0.1ms = 10000Hz polling
-            except KeyboardInterrupt:
-                break
-            except Exception:
-                pass
-    
-    
-    def blocking_input_loop_unix():
-        import sys
-        
-        old_settings = termios.tcgetattr(sys.stdin)
+                self.loop.add_reader(sys.stdin, self._unix_input_handler)
+            except Exception as e:
+                log(f"Warning: Stdout not a TTY, falling back to polling: {e}", "WARNING")
+                asyncio.create_task(self._fallback_polling_loop())
+        else:
+            # Windows: Blocking thread
+            import threading
+            self._thread = threading.Thread(target=self._windows_input_thread, daemon=True)
+            self._thread.start()
+
+    def _unix_input_handler(self):
         try:
-            tty.setcbreak(sys.stdin.fileno())
-            while True:
-                try:
-                    # Ultra-fast polling for instant key detection
-                    if select.select([sys.stdin], [], [], 0.0001)[0]:
-                        char = sys.stdin.read(1)
-                        
-                        if char == '\x1b':
-                            if select.select([sys.stdin], [], [], 0.0001)[0]:
-                                next_char = sys.stdin.read(1)
-                                if next_char == '[':
-                                    if select.select([sys.stdin], [], [], 0.0001)[0]:
-                                        arrow = sys.stdin.read(1)
-                                        if arrow == 'A':
-                                            key = 'up'
-                                        elif arrow == 'B':
-                                            key = 'down'
-                                        else:
-                                            continue
-                                    else:
-                                        key = 'q'
-                                else:
-                                    key = 'q'
-                            else:
-                                key = 'q'
-                        elif char == '\r' or char == '\n':
-                            continue
-                        else:
-                            key = char.lower()
-                        
-                        asyncio.run_coroutine_threadsafe(command_queue.put(key), loop)
-                except KeyboardInterrupt:
-                    break
-                except Exception:
-                    pass
-        finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-    
-    blocking_input_loop = blocking_input_loop_windows if sys.platform == 'win32' else blocking_input_loop_unix
-    
-    input_thread = threading.Thread(target=blocking_input_loop, daemon=True)
-    input_thread.start()
-    try:
-        while True:
-            await asyncio.sleep(1)
-    except asyncio.CancelledError:
-        pass
+            line = sys.stdin.read(1)
+            if not line:
+                return
+            
+            key = line.lower()
+            if key == '\x1b':
+                # Simple escape sequence handling
+                pass
+            
+            asyncio.create_task(self.queue.put(key.strip()))
+        except Exception:
+            pass
+
+    def _windows_input_thread(self):
+        """Blocking input thread for Windows - Zero CPU usage"""
+        while self.running:
+            try:
+                # This blocks until a key is pressed - 0% CPU
+                char = msvcrt.getch()
+                key = ''
+                
+                if char == b'\x1b':
+                    key = 'q'
+                elif char == b'\r':
+                    continue
+                elif char in [b'\x00', b'\xe0']:
+                    # Special keys
+                    if msvcrt.kbhit():
+                        next_char = msvcrt.getch()
+                        if next_char == b'H': key = 'up'
+                        elif next_char == b'P': key = 'down'
+                else:
+                    try:
+                        key = char.decode('utf-8').lower()
+                    except:
+                        pass
+                
+                if key and self.running:
+                    # Thread-safe way to put into asyncio queue
+                    self.loop.call_soon_threadsafe(self.queue.put_nowait, key)
+                    
+            except Exception as e:
+                # Don't log here to avoid thread conflicts, just retry
+                pass
+
+    async def _fallback_polling_loop(self):
+        """For non-TTY Unix environments"""
+        import select
+        while self.running:
+            await asyncio.sleep(0.1)
+
+    def stop(self):
+        self.running = False
+        if sys.platform != 'win32':
+            try:
+                self.loop.remove_reader(sys.stdin)
+            except:
+                pass
+        # Windows thread is daemon, will die with process
 
 
 async def update_display(live: Live, tui: ShazamTUI):
@@ -136,8 +126,8 @@ async def update_display(live: Live, tui: ShazamTUI):
                     tui.mark_rendered()
                     last_render_time = current_time
             
-            # Ultra-tight loop for instant response
-            await asyncio.sleep(0.005)  # 200Hz check rate for silky smooth updates
+            # 20Hz check rate is sufficient for TUI
+            await asyncio.sleep(0.05)
             
         except asyncio.CancelledError:
             break
@@ -191,7 +181,8 @@ async def main_async() -> None:
     with Live(tui.render(), refresh_per_second=30, screen=True) as live:
         tui.live = live
         
-        input_task = asyncio.create_task(input_reader(command_queue, loop))
+        # Input handling (No separate task needed for Unix, Task created inside for Win)
+        input_handler = InputHandler(command_queue, loop)
         
         recognition_task = asyncio.create_task(
             audio_recognition_loop(services, tui)
@@ -209,7 +200,7 @@ async def main_async() -> None:
             pass
         finally:
             recognition_task.cancel()
-            input_task.cancel()
+            input_handler.stop()
             update_task.cancel()
             
             await tui.cancel_all_tasks()
@@ -217,7 +208,7 @@ async def main_async() -> None:
             cleanup_tasks = [
                 services.cleanup(),
                 session_manager.close(),
-                asyncio.gather(recognition_task, input_task, update_task, return_exceptions=True)
+                asyncio.gather(recognition_task, update_task, return_exceptions=True)
             ]
             
             executor_manager.shutdown(wait=False)

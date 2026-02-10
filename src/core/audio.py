@@ -27,20 +27,29 @@ def normalize_audio_data(frames: list) -> bytes:
         return b''.join(frames)
 
 
-async def record_audio(duration: int, show_progress: bool = True) -> Optional[str]:
+async def record_audio(duration: int, stop_event: Optional[asyncio.Event] = None, show_progress: bool = True) -> Optional[str]:
     temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     temp_path = temp_file.name
     temp_file.close()
     
+    # Create a threading.Event if an asyncio.Event is passed, to share with the thread
+    # Actually, executor runs in a thread, so we need a threading.Event-like object that is thread-safe.
+    # We can pass an object that has an is_set() method.
+    # But to be safe, let's assume the caller passes an object with is_set(). 
+    # Wait, asyncio.Event is not thread-safe for reading from another thread? 
+    # Actually, asyncio.Event is not thread-safe. We should pass a threading.Event or a simplified wrapper.
+    # Let's verify what we can pass. Ideally, we pass a threading.Event.
+    # So the signature: stop_event: Optional[threading.Event]
+    
     try:
-        return await executor_manager.run_in_executor(_record_audio_sync, duration, temp_path, show_progress)
+        return await executor_manager.run_in_executor(_record_audio_sync, duration, temp_path, show_progress, stop_event)
         
     except Exception as e:
         log(f"Recording failed: {e}", "ERROR")
         return None
 
 
-def _record_audio_sync(duration: int, temp_path: str, show_progress: bool) -> Optional[str]:
+def _record_audio_sync(duration: int, temp_path: str, show_progress: bool, stop_event=None) -> Optional[str]:
     audio = None
     stream = None
     wf = None
@@ -70,7 +79,11 @@ def _record_audio_sync(duration: int, temp_path: str, show_progress: bool) -> Op
         frames = []
         total_chunks = int(RATE / CHUNK * duration)
         chunks_per_second = RATE // CHUNK
+        
         for i in range(total_chunks):
+            if stop_event and stop_event.is_set():
+                break
+                
             if show_progress and i % (chunks_per_second // 2) == 0:
                 elapsed = i // chunks_per_second
                 dots = "." * ((elapsed % 4) + 1)

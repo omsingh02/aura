@@ -175,7 +175,7 @@ class ShazamTUI:
         return Panel(
             content,
             title=title,
-            subtitle="[dim]\[d]ownload | \[y]outube | \[v]oice | \[x]delete | \[q]uit | \[?]help[/]",
+            subtitle=r"[dim]\[d]ownload | \[y]outube | \[v]oice | \[x]delete | \[q]uit | \[?]help[/]",
             border_style="cyan",
             padding=(1, 2)
         )
