@@ -24,13 +24,23 @@ async def audio_recognition_loop(
     consecutive_fails = 0
     max_fails = 5
     
+    stop_event = None
+    
+    try:
+        import threading
+        stop_event = threading.Event()
+    except ImportError:
+        pass
+
     while True:
         try:
             iteration += 1
+            if stop_event: stop_event.clear()
             
             tui.set_status("Listening...")
             
-            audio_file = await record_audio(RECORD_SECONDS, show_progress=False)
+            # Pass the stop_event to record_audio
+            audio_file = await record_audio(RECORD_SECONDS, stop_event=stop_event, show_progress=False)
             
             if not audio_file:
                 consecutive_fails += 1
@@ -70,8 +80,12 @@ async def audio_recognition_loop(
                 tui.set_status("No match found")
             
         except asyncio.CancelledError:
+            if stop_event:
+                stop_event.set()
             break
         except KeyboardInterrupt:
+            if stop_event:
+                stop_event.set()
             break
         except Exception as e:
             log(f"Recognition error: {e}", "ERROR")
