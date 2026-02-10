@@ -20,11 +20,11 @@ class MusicDownloader:
             saavn = JioSaavn()
             query = f"{song_title} {artist}"
             
-            log(f"🔍 Searching JioSaavn: {query}", "INFO")
+            log(f"[?] Searching JioSaavn: {query}", "INFO")
             results = await saavn.search_songs(query)
             
             if not results.get('data'):
-                log("❌ No results on JioSaavn", "WARNING")
+                log("[!] No results on JioSaavn", "WARNING")
                 return False
             
             song = results['data'][0]
@@ -33,7 +33,7 @@ class MusicDownloader:
             media_url = await saavn.get_song_direct_link(song_url)
             
             if not media_url:
-                log("❌ Could not get download link", "ERROR")
+                log("[!] Could not get download link", "ERROR")
                 return False
             
             filename = self._sanitize_filename(f"{song_title} - {artist}.m4a")
@@ -42,15 +42,15 @@ class MusicDownloader:
             success = await self._download_file(media_url, filepath)
             
             if success:
-                log(f"✅ Downloaded: {filename}", "SUCCESS")
+                log(f"[OK] Downloaded: {filename}", "SUCCESS")
                 return True
             return False
             
         except ImportError:
-            log("❌ JioSaavn library not installed", "ERROR")
+            log("[!] JioSaavn library not installed", "ERROR")
             return False
         except Exception as e:
-            log(f"❌ Download error: {e}", "ERROR")
+            log(f"[!] Download error: {e}", "ERROR")
             return False
     
     @async_retry(max_attempts=3, base_delay=2.0, exceptions=(aiohttp.ClientError, IOError))
@@ -70,13 +70,13 @@ class MusicDownloader:
             
             return True
         except aiohttp.ClientError as e:
-            log(f"❌ HTTP error during download: {e}", "ERROR")
+            log(f"[!] HTTP error during download: {e}", "ERROR")
             return False
         except IOError as e:
-            log(f"❌ File I/O error during download: {e}", "ERROR")
+            log(f"[!] File I/O error during download: {e}", "ERROR")
             return False
         except Exception as e:
-            log(f"❌ Download failed: {e}", "ERROR")
+            log(f"[!] Download failed: {e}", "ERROR")
             return False
     
     def _sanitize_filename(self, filename: str) -> str:

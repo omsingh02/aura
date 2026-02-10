@@ -35,7 +35,7 @@ async def audio_recognition_loop(
             if not audio_file:
                 consecutive_fails += 1
                 if consecutive_fails >= max_fails:
-                    tui.set_status(f"❌ Failed {max_fails} times. Check microphone!")
+                    tui.set_status(f"[!] Failed {max_fails} times. Check microphone!")
                     break
                 await asyncio.sleep(0.5)
                 continue
@@ -50,7 +50,7 @@ async def audio_recognition_loop(
                 
                 if is_new:
                     tui.add_song(song_info)
-                    tui.set_status(f"✓ Found: {song_info['title'][:30]}")
+                    tui.set_status(f"[+] Found: {song_info['title'][:30]}")
                     
                     if AUTO_DOWNLOAD:
                         task = asyncio.create_task(
@@ -75,7 +75,7 @@ async def audio_recognition_loop(
             break
         except Exception as e:
             log(f"Recognition error: {e}", "ERROR")
-            tui.set_status(f"❌ Recognition error: {str(e)[:50]}")
+            tui.set_status(f"[!] Recognition error: {str(e)[:50]}")
             await asyncio.sleep(1)
 
 
@@ -124,5 +124,5 @@ async def command_processor_loop(
             break
         except Exception as e:
             log(f"Command processing error: {e}", "ERROR")
-            tui.set_status(f"❌ Command processing error: {str(e)[:50]}")
+            tui.set_status(f"[!] Command processing error: {str(e)[:50]}")
 

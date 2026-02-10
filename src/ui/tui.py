@@ -147,7 +147,7 @@ class ShazamTUI:
                 is_selected = (idx == selected_offset)
                 
                 # Use simpler indicator and style
-                indicator = "►" if is_selected else " "
+                indicator = ">" if is_selected else " "
                 row_style = "on blue" if is_selected else ""
                 
                 # Pre-formatted values

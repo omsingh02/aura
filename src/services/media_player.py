@@ -32,7 +32,7 @@ class MediaPlayer:
             
             return None, None
         except Exception as e:
-            log(f"❌ Error getting video info: {e}", "ERROR")
+            log(f"[!] Error getting video info: {e}", "ERROR")
             return None, None
     
     async def play_media(self, media_url: str, title: str, content_type: str = 'song') -> bool:
@@ -53,13 +53,13 @@ class MediaPlayer:
                             media_url
                         ])
                     
-                    log(f"▶️ Playing: {title}", "INFO")
+                    log(f"> Playing: {title}", "INFO")
                     subprocess.Popen(mpv_args, 
                                    stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL)
                     return True
                 except FileNotFoundError:
-                    log("⚠️ MPV not found, using default Windows player", "WARNING")
+                    log("[!] MPV not found, using default Windows player", "WARNING")
                     import webbrowser
                     webbrowser.open(media_url)
                     return True
@@ -80,5 +80,5 @@ class MediaPlayer:
                                stderr=subprocess.DEVNULL)
                 return True
         except Exception as e:
-            log(f"❌ Playback error: {e}", "ERROR")
+            log(f"[!] Playback error: {e}", "ERROR")
             return False
