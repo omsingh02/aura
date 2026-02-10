@@ -25,9 +25,9 @@ class YouTubePlayer:
             
             if cache_key in self.cache:
                 video_url = self.cache[cache_key]
-                log(f"▶️ Playing from cache", "INFO")
+                log(f"> Playing from cache", "INFO")
             else:
-                log(f"🔍 Searching YouTube: {query}", "INFO")
+                log(f"[?] Searching YouTube: {query}", "INFO")
                 video_url = await self._search_youtube(query)
                 
                 if video_url:
@@ -37,15 +37,15 @@ class YouTubePlayer:
                     self.cache[cache_key] = video_url
                     self._save_cache()
                 else:
-                    log("❌ No YouTube results", "WARNING")
+                    log("[!] No YouTube results", "WARNING")
                     return False
             
-            log(f"✅ Opening: {video_url}", "SUCCESS")
+            log(f"[OK] Opening: {video_url}", "SUCCESS")
             webbrowser.open(video_url)
             return True
             
         except Exception as e:
-            log(f"❌ YouTube error: {e}", "ERROR")
+            log(f"[!] YouTube error: {e}", "ERROR")
             return False
     
     @async_retry(max_attempts=3, base_delay=1.0, exceptions=(aiohttp.ClientError, TimeoutError))
@@ -69,10 +69,10 @@ class YouTubePlayer:
         except asyncio.CancelledError:
             raise
         except aiohttp.ClientError as e:
-            log(f"❌ YouTube HTTP error: {e}", "ERROR")
+            log(f"[!] YouTube HTTP error: {e}", "ERROR")
             return None
         except Exception as e:
-            log(f"❌ YouTube search error: {e}", "ERROR")
+            log(f"[!] YouTube search error: {e}", "ERROR")
             return None
     
     def _load_cache(self) -> dict:

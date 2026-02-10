@@ -13,7 +13,7 @@ def _handle_task_exception(task: asyncio.Task, task_name: str):
     except asyncio.CancelledError:
         pass
     except Exception as e:
-        log(f"❌ {task_name} task failed: {e}", "ERROR")
+        log(f"[!] {task_name} task failed: {e}", "ERROR")
 
 
 async def _run_voice_command(voice_controller, tui):
@@ -23,7 +23,7 @@ async def _run_voice_command(voice_controller, tui):
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        tui.set_status(f"❌ Voice error: {str(e)[:30]}")
+        tui.set_status(f"[!] Voice error: {str(e)[:30]}")
         raise
 
 
@@ -58,7 +58,7 @@ async def process_command(
                 task.add_done_callback(lambda t: _handle_task_exception(t, "Download"))
                 tui.add_task(task)
             else:
-                tui.set_status("❌ No songs detected yet")
+                tui.set_status("[!] No songs detected yet")
         
         elif cmd == 'y':
             song = tui.get_selected_song()
@@ -69,7 +69,7 @@ async def process_command(
                 task.add_done_callback(lambda t: _handle_task_exception(t, "YouTube"))
                 tui.add_task(task)
             else:
-                tui.set_status("❌ No songs detected yet")
+                tui.set_status("[!] No songs detected yet")
         
         elif cmd == 'v':
             if voice_controller:
@@ -78,7 +78,7 @@ async def process_command(
                 task.add_done_callback(lambda t: _handle_task_exception(t, "Voice"))
                 tui.add_task(task)
             else:
-                tui.set_status("❌ Voice controller not initialized")
+                tui.set_status("[!] Voice controller not initialized")
         
         elif cmd == '?':
             tui.toggle_help()
@@ -89,19 +89,19 @@ async def process_command(
                 history.remove(song['id'])
                 removed = tui.remove_selected_song()
                 if removed:
-                    tui.set_status(f"🗑️ Removed: {removed['title'][:20]}")
+                    tui.set_status(f"[X] Removed: {removed['title'][:20]}")
             else:
-                tui.set_status("❌ No song selected")
+                tui.set_status("[!] No song selected")
         
         elif cmd == 'q':
             return 'quit'
         
         else:
-            log(f"❌ Unknown command: {cmd}. Type '?' for help", "WARNING")
+            log(f"[!] Unknown command: {cmd}. Type '?' for help", "WARNING")
     
     except KeyboardInterrupt:
         raise
     except Exception as e:
-        log(f"❌ Command error: {e}", "ERROR")
+        log(f"[!] Command error: {e}", "ERROR")
     
     return None

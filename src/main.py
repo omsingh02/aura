@@ -155,7 +155,7 @@ async def main_async() -> None:
     )
     
     if not mic_ok or not shazam_ok:
-        log("❌ System check failed!", "ERROR")
+        log("[!] System check failed!", "ERROR")
         return
     
     services = ServiceManager()
@@ -237,7 +237,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\n\nExiting...\n")
     except Exception as e:
-        log(f"❌ Fatal error: {e}", "ERROR")
+        log(f"[!] Fatal error: {e}", "ERROR")
 
 
 if __name__ == "__main__":
