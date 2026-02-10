@@ -60,6 +60,24 @@ class SongHistory:
         self._log_detection(song_with_id)
         return True, self.current_index
     
+    def remove(self, song_id: int) -> bool:
+        """Remove a song by its ID."""
+        if song_id not in self.songs_by_id:
+            return False
+            
+        song = self.songs_by_id.pop(song_id)
+        song_key = f"{song.get('title', '')}|{song.get('artist', '')}"
+        
+        if song_key in self.songs_by_key:
+            del self.songs_by_key[song_key]
+            
+        # Reconstruct deque without the removed song
+        self.songs = deque([s for s in self.songs if s['id'] != song_id], maxlen=self.songs.maxlen)
+        
+        self._cache_dirty = True
+        self.force_save_cache()
+        return True
+    
     def get_by_id(self, song_id: int) -> Optional[Dict[str, Any]]:
         return self.songs_by_id.get(song_id)
     

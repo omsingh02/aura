@@ -309,6 +309,20 @@ class ShazamTUI:
             return self.songs[self.selected_index]
         return None
     
+    def remove_selected_song(self) -> Optional[Dict[str, Any]]:
+        """Remove the currently selected song and return it."""
+        if not self.songs or self.selected_index < 0 or self.selected_index >= len(self.songs):
+            return None
+            
+        removed_song = self.songs.pop(self.selected_index)
+        
+        # Adjust selection if we're at the bottom
+        if self.selected_index >= len(self.songs):
+            self.selected_index = max(0, len(self.songs) - 1)
+            
+        self._dirty = True
+        return removed_song
+    
     def set_status(self, status: str):
         """Thread-safe status update"""
         with self._status_lock:

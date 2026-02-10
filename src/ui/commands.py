@@ -82,6 +82,16 @@ async def process_command(
         
         elif cmd == '?':
             tui.toggle_help()
+
+        elif cmd == 'x':
+            song = tui.get_selected_song()
+            if song:
+                services.history.remove(song['id'])
+                removed = tui.remove_selected_song()
+                if removed:
+                    tui.set_status(f"🗑️ Removed: {removed['title'][:20]}")
+            else:
+                tui.set_status("❌ No song selected")
         
         elif cmd == 'q':
             return 'quit'
