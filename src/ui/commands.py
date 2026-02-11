@@ -3,7 +3,6 @@ from typing import Optional
 from ..core.history import SongHistory
 from ..services.downloader import MusicDownloader
 from ..services.youtube import YouTubePlayer
-from ..services.voice import VoiceController
 from ..utils.logger import log
 
 
@@ -16,25 +15,13 @@ def _handle_task_exception(task: asyncio.Task, task_name: str):
         log(f"[!] {task_name} task failed: {e}", "ERROR")
 
 
-async def _run_voice_command(voice_controller, tui):
-    try:
-        await voice_controller.process_voice_request()
-        tui.set_status("Voice command completed")
-    except asyncio.CancelledError:
-        raise
-    except Exception as e:
-        tui.set_status(f"[!] Voice error: {str(e)[:30]}")
-        raise
-
-
 async def process_command(
     command: str,
     history: SongHistory,
     downloader: MusicDownloader,
     player: YouTubePlayer,
     iteration: int,
-    tui: 'ShazamTUI',
-    voice_controller: Optional[VoiceController] = None
+    tui: 'ShazamTUI'
 ) -> Optional[str]:
     cmd = command.strip().lower()
     
@@ -71,14 +58,6 @@ async def process_command(
             else:
                 tui.set_status("[!] No songs detected yet")
         
-        elif cmd == 'v':
-            if voice_controller:
-                tui.set_status("[MIC] Starting voice recognition...")
-                task = asyncio.create_task(_run_voice_command(voice_controller, tui))
-                task.add_done_callback(lambda t: _handle_task_exception(t, "Voice"))
-                tui.add_task(task)
-            else:
-                tui.set_status("[!] Voice controller not initialized")
         
         elif cmd == '?':
             tui.toggle_help()

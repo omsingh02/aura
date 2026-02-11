@@ -1,27 +1,59 @@
 import asyncio
 import wave
 import tempfile
-import numpy as np
+import struct
+import math
 import pyaudio
 from typing import Optional
-from ..config import CHUNK, CHANNELS, RATE
+
 from ..utils.logger import log
 from ..utils.executor import executor_manager
-
+from ..config import CHUNK, RATE, CHANNELS
 
 def normalize_audio_data(frames: list) -> bytes:
     try:
-        frame_arrays = [np.frombuffer(frame, dtype=np.int16) for frame in frames]
-        audio_data = np.concatenate(frame_arrays)
-        rms = np.sqrt(np.mean(audio_data.astype(np.float32)**2))
+        # Combine frames
+        audio_data = b''.join(frames)
+        
+        # Convert to 16-bit integers
+        # memoryview and casting is faster than struct.unpack for large data
+        try:
+            # Create a read-only memoryview
+            mv = memoryview(audio_data)
+            # Cast to signed short (16-bit)
+            shorts = mv.cast('h')
+        except TypeError:
+            # Fallback if casting fails (e.g. alignment issues or odd length)
+            count = len(audio_data) // 2
+            shorts = struct.unpack(f'{count}h', audio_data)
+        
+        if not shorts:
+            return audio_data
+
+        # Calculate RMS (Root Mean Square)
+        # sum(x^2) can be large, use float
+        sum_squares = sum(float(s)**2 for s in shorts)
+        rms = math.sqrt(sum_squares / len(shorts))
         
         if rms > 0:
             target_rms = 8192
             scaling_factor = min(target_rms / rms, 4.0)
-            audio_data = audio_data * scaling_factor
-            audio_data = np.clip(audio_data, -32768, 32767)
+            
+            # Apply scaling and clipping
+            # Use list comprehension for speed in pure python (still slower than numpy but fine for 5s audio)
+            normalized_shorts = []
+            for s in shorts:
+                val = int(s * scaling_factor)
+                # Clip to 16-bit signed range
+                if val > 32767: val = 32767
+                elif val < -32768: val = -32768
+                normalized_shorts.append(val)
+                
+            # Pack back to bytes
+            return struct.pack(f'{len(normalized_shorts)}h', *normalized_shorts)
+            
+        return audio_data
         
-        return audio_data.astype(np.int16).tobytes()
     except Exception as e:
         log(f"Warning: Audio normalization optimization failed, using fallback: {e}", "WARNING")
         return b''.join(frames)

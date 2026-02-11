@@ -124,8 +124,7 @@ async def command_processor_loop(
                 services.downloader,
                 services.player,
                 iteration,
-                tui,
-                services.voice_controller
+                tui
             )
             
             if result == 'quit':
